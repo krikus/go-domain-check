@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -26,7 +25,7 @@ var opts options;
 
 func debug(msg string) {
 	if opts.Verbose {
-		println(msg)
+		fmt.Println(msg)
 	}
 }
 
@@ -55,56 +54,44 @@ func validate(domain string) bool {
 	return true;
 }
 
-func readDomains(path string) ([]string, error) {
-	file, err := os.Open(path)
-    if err != nil {
-        return nil, err
-    }
-    defer file.Close()
-
-    reader := bufio.NewReader(file)
-	var domains []string
-    for  {
-		line, _ := reader.ReadString('\n')
-		if len(line) > 3  && strings.Index(line, ".") > 0 {
-			domains = append(domains, strings.TrimSuffix(line, "\n"))
-		} else {
-			break;	
-		}
-    }
-
-	return domains, nil;
-
-}
-
 func main() {
 	args, err := flags.Parse(&opts);
 
 	if err != nil {
 		panic(err);
 	}
-	var domains []string
+
+	if (opts.Cname != "" && opts.Cname[len(opts.Cname)-1:] != ".") {
+		opts.Cname = fmt.Sprintf("%s.", opts.Cname);
+		debug("Added missing dot at the end of the Cname parameter")
+	}
+
+	var iterator StringIterator
 	if opts.File != "" {
-		domains, err = readDomains(opts.File)
+		file, err := os.Open(opts.File)
 		if err != nil {
 			panic(fmt.Sprintf("Error during opening the file %s - %v", opts.File, err))
 		}
+		defer file.Close()
+		iterator = CreateReaderIterator(file)
+	
 	} else if len(args) == 0 {
-		panic("No domain to process");
+		iterator = CreateReaderIterator(os.Stdin)
 	} else {
-		domains = args
+		iterator = CreateArrayIterator(args)
 	}
 
-	for _, element := range domains {
+	for iterator.hasNext() {
+		element := iterator.getNext()
 		if validate(element) {
-			debug(fmt.Sprintf("%s is valid\n", element))
+			debug(fmt.Sprintf("%s is valid", element))
 			if (opts.PrintValid) {
-				println(element)
+				fmt.Println(element)
 			}
 		} else {
-			debug(fmt.Sprintf("%s is invalid\n", element))
+			debug(fmt.Sprintf("%s is invalid", element))
 			if (opts.PrintInvalid) {
-				println(element)
+				fmt.Println(element)
 			}
 			if (opts.ExitCode) {
 				os.Exit(1)
