@@ -18,7 +18,7 @@ Application Options:
                        Each domain should be in a new line
   -p, --print-valid    Prints valid domains
   -i, --print-invalid  Prints invalid domains
-  -c, --concurrency=   How many checks to perform in the same (default: 4)
+  -c, --concurrency=   How many checks to perform in the same (default: 10)
   -e, --exit           Exit with code upon detecting invalid domain
 
 ```
