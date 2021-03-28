@@ -18,12 +18,18 @@ Application Options:
                        Each domain should be in a new line
   -p, --print-valid    Prints valid domains
   -i, --print-invalid  Prints invalid domains
+  -c, --concurrency=   How many checks to perform in the same (default: 10)
   -e, --exit           Exit with code upon detecting invalid domain
 
-Help Options:
-  -h, --help           Show this help message
-
 ```
+
+### Input sources
+
+The binary can be used with those scenarios:
+
+[x] console pipelines: `cat domains.list | go-domain-check --tls -p`
+[x] standard input: `go-domain-check --tls -p` + keyboard magic :)
+[x] multiple inline params: `go-domain-check --tls -p domain1.com domain2.com`
 
 #### Examples
 
