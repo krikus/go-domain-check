@@ -23,6 +23,5 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
-        project_path: "./"
         binary_name: "domain-check"
         extra_files: LICENSE.md README.md
