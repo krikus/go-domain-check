@@ -6,7 +6,7 @@ Util that helps validating domains settings by passing options
 
 ## TODO
 
-[] Support multiple --ip and --cname options passed together
+- Support multiple --ip and --cname options passed together
 
 ### Execution
 
@@ -32,9 +32,9 @@ Application Options:
 
 The binary can be used with those scenarios:
 
-[x] console pipelines: `cat domains.list | go-domain-check --tls -p`
-[x] standard input: `go-domain-check --tls -p` + keyboard magic :)
-[x] multiple inline params: `go-domain-check --tls -p domain1.com domain2.com`
+- console pipelines: `cat domains.list | go-domain-check --tls -p`
+- standard input: `go-domain-check --tls -p` + keyboard magic :)
+- multiple inline params: `go-domain-check --tls -p domain1.com domain2.com`
 
 #### Examples
 
