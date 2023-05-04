@@ -11,14 +11,15 @@ import (
 )
 
 type options struct {
-	Cname string `long:"cname" description:"Pass a CNAME entry that domain needs to set as well"`
+	Cname   []string `long:"cname" description:"Pass a CNAME entry that domain needs to set as well"`
+	IpRange []string `long:"ip" description:"Pass an IP range that domain needs to be in"`
 	// Caa string `long:"caa" description:"Pass a CAA entry that domain needs to set as well"`
 	TLS          bool   `long:"tls" description:"Check if domain has valid certificate"`
 	Verbose      bool   `short:"v" long:"verbose" description:"Show more info on the console"`
 	File         string `short:"f" long:"file" description:"File path with all domains to be checked.\nEach domain should be in a new line"`
 	PrintValid   bool   `short:"p" long:"print-valid" description:"Prints valid domains"`
 	PrintInvalid bool   `short:"i" long:"print-invalid" description:"Prints invalid domains"`
-	Concurrency  int    `short:"c" long:"concurrency" description:"How many checks to perform in the same" default:"10"`
+	Concurrency  int    `short:"c" long:"concurrency" description:"How many checks to perform in the same" default:"100"`
 	ExitCode     bool   `short:"e" long:"exit" description:"Exit with code upon detecting invalid domain"`
 }
 
@@ -43,13 +44,37 @@ func validate(domain string) bool {
 		conn.Close()
 	}
 
-	if opts.Cname != "" {
+	if len(opts.IpRange) > 0 {
+		ip, _ := net.LookupIP(domain)
+		debug(fmt.Sprintf("[%s] Checking IP %s agains %s", domain, ip, opts.IpRange))
+
+		for _, netIp := range ip {
+			for _, itemIp := range opts.IpRange {
+				ipRange := strings.Split(itemIp, "/")
+				if len(ipRange) == 2 {
+					_, ipnet, _ := net.ParseCIDR(itemIp)
+					if ipnet.Contains(netIp) {
+						return true
+					}
+				} else if netIp.String() == itemIp {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	if len(opts.Cname) > 0 {
 		cname, _ := net.LookupCNAME(domain)
 		debug(fmt.Sprintf("[%s] Checking CNAME %s agains %s", domain, cname, opts.Cname))
-		if cname != opts.Cname {
-			debug(fmt.Sprintf("[%s] CNAME checkup failed", domain))
-			return false
+
+		for _, itemCname := range opts.Cname {
+			if cname == itemCname {
+				return true
+			}
 		}
+		debug(fmt.Sprintf("[%s] CNAME checkup failed", domain))
+		return false
 	}
 
 	return true
@@ -62,9 +87,14 @@ func main() {
 		panic(err)
 	}
 
-	if opts.Cname != "" && opts.Cname[len(opts.Cname)-1:] != "." {
-		opts.Cname = fmt.Sprintf("%s.", opts.Cname)
-		debug("Added missing dot at the end of the Cname parameter")
+	debug(fmt.Sprintf("Cname: %v", opts.Cname))
+	for i := range opts.Cname {
+		if opts.Cname[i][len(opts.Cname[i])-1:] != "." {
+			opts.Cname[i] = strings.ToLower(fmt.Sprintf("%s.", opts.Cname[i]))
+			debug(fmt.Sprintf("Added missing dot at the end of the Cname parameter %v", opts.Cname[i]))
+		} else {
+			opts.Cname[i] = strings.ToLower(opts.Cname[i])
+		}
 	}
 
 	var iterator StringIterator
