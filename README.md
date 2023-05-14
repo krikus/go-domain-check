@@ -4,10 +4,6 @@
 
 Util that helps validating domains settings by passing options
 
-## TODO
-
-- Support multiple --ip and --cname options passed together
-
 ### Execution
 
 ```
@@ -49,3 +45,6 @@ Check if the domain has valid CNAME entry
 Check if domain is pointing to CIDR address
 
 `./go-domain-check --ip 127.0.0.1/24 --ip 1.2.3.4/24 test.example.com`
+
+You can also mix options like `--tls`, `--ip` and `--cname`. When all three are used together
+then the check is as follows: `tls AND (ip OR cname)`

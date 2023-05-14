@@ -11,11 +11,12 @@ import (
 )
 
 type options struct {
-	Cname   []string `long:"cname" description:"Pass a CNAME entry that domain needs to set as well"`
-	IpRange []string `long:"ip" description:"Pass an IP range that domain needs to be in"`
-	// Caa string `long:"caa" description:"Pass a CAA entry that domain needs to set as well"`
+	Cname        []string     `long:"cname" description:"Pass a CNAME entry that domain needs to set as well"`
+	IpParser     func(string) `long:"ip" description:"Pass an IP range that domain needs to be in"`
+	IpCmp        []func(net.IP) bool
 	TLS          bool   `long:"tls" description:"Check if domain has valid certificate"`
-	Verbose      bool   `short:"v" long:"verbose" description:"Show more info on the console"`
+	Verbose      bool   `short:"v" long:"verbose" description:"Show more info on the console (same as Debug)"`
+	Debug        bool   `short:"d" long:"debug" description:"Show more info on the console(same as Verbose)"`
 	File         string `short:"f" long:"file" description:"File path with all domains to be checked.\nEach domain should be in a new line"`
 	PrintValid   bool   `short:"p" long:"print-valid" description:"Prints valid domains"`
 	PrintInvalid bool   `short:"i" long:"print-invalid" description:"Prints invalid domains"`
@@ -26,7 +27,7 @@ type options struct {
 var opts options
 
 func debug(msg string) {
-	if opts.Verbose {
+	if opts.Verbose || opts.Debug {
 		fmt.Println(msg)
 	}
 }
@@ -44,24 +45,22 @@ func validate(domain string) bool {
 		conn.Close()
 	}
 
-	if len(opts.IpRange) > 0 {
-		ip, _ := net.LookupIP(domain)
-		debug(fmt.Sprintf("[%s] Checking IP %s agains %s", domain, ip, opts.IpRange))
+	setTrue := false
 
+	if len(opts.IpCmp) > 0 {
+		ip, _ := net.LookupIP(domain)
 		for _, netIp := range ip {
-			for _, itemIp := range opts.IpRange {
-				ipRange := strings.Split(itemIp, "/")
-				if len(ipRange) == 2 {
-					_, ipnet, _ := net.ParseCIDR(itemIp)
-					if ipnet.Contains(netIp) {
-						return true
-					}
-				} else if netIp.String() == itemIp {
-					return true
+			for _, cmp := range opts.IpCmp {
+				if cmp(netIp) {
+					setTrue = true
+					break
 				}
 			}
 		}
-		return false
+
+		if setTrue == false {
+			debug(fmt.Sprintf("[%s] IP checkup failed %v", domain, ip))
+		}
 	}
 
 	if len(opts.Cname) > 0 {
@@ -70,17 +69,35 @@ func validate(domain string) bool {
 
 		for _, itemCname := range opts.Cname {
 			if cname == itemCname {
-				return true
+				setTrue = true
 			}
 		}
-		debug(fmt.Sprintf("[%s] CNAME checkup failed", domain))
-		return false
+		if setTrue == false {
+			debug(fmt.Sprintf("[%s] CNAME checkup failed", domain))
+		}
 	}
 
-	return true
+	return setTrue || (len(opts.IpCmp) == 0 && len(opts.Cname) == 0)
 }
 
 func main() {
+	opts.IpParser = func(ip string) {
+		ipRange := strings.Split(ip, "/")
+		if len(ipRange) == 2 {
+			debug(fmt.Sprintf("Adding IP range to check pool: %s", ip))
+			_, ipnet, err := net.ParseCIDR(ip)
+			if err != nil {
+				panic(fmt.Sprintf("Error during parsing the IP range %s - %v", ip, err))
+			}
+			opts.IpCmp = append(opts.IpCmp, ipnet.Contains)
+		} else {
+			debug(fmt.Sprintf("Adding IP to check pool: %s", ip))
+			opts.IpCmp = append(opts.IpCmp, func(ipIn net.IP) bool {
+				return ip == ipIn.String()
+			})
+		}
+	}
+
 	args, err := flags.Parse(&opts)
 
 	if err != nil {
