@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	flags "github.com/jessevdk/go-flags"
+	gochanbroker "github.com/krikus/go-chan-broker"
 )
 
 type options struct {
@@ -129,31 +130,32 @@ func main() {
 		iterator = CreateArrayIterator(args)
 	}
 
-	broker := CreateChanBroker(opts.Concurrency, validate)
-	go (func() {
-		myChan := broker.GetResultsChan()
-		for result := range myChan {
-			if result.result {
-				debug(fmt.Sprintf("%s is valid", result.domain))
-				if opts.PrintValid {
-					fmt.Println(result.domain)
-				}
-			} else {
-				debug(fmt.Sprintf("%s is invalid", result.domain))
-				if opts.PrintInvalid {
-					fmt.Println(result.domain)
-				}
-				if opts.ExitCode {
-					os.Exit(1)
-				}
+	broker := gochanbroker.CreateChanBroker(opts.Concurrency, validate)
+
+	go func() {
+		for iterator.hasNext() {
+			domainName := iterator.getNext()
+			broker.AddJob(domainName)
+		}
+
+		broker.Finalize()
+	}()
+
+	for result := range broker.GetResultsChan() {
+		debug(fmt.Sprintf("Got result %v", result))
+		if result.Result {
+			debug(fmt.Sprintf("%s is valid", result.Key))
+			if opts.PrintValid {
+				fmt.Println(result.Key)
+			}
+		} else {
+			debug(fmt.Sprintf("%s is invalid", result.Key))
+			if opts.PrintInvalid {
+				fmt.Println(result.Key)
+			}
+			if opts.ExitCode {
+				os.Exit(1)
 			}
 		}
-		broker.Finished()
-	})()
-
-	for iterator.hasNext() {
-		element := iterator.getNext()
-		broker.PushToValidate(element)
 	}
-	broker.Close()
 }
